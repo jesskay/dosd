@@ -7,7 +7,18 @@
 #include <X11/Xlib.h>
 #include "draw.h"
 
+typedef enum {
+    ANCHOR_TOP,
+    ANCHOR_LEFT,
+    ANCHOR_MIDDLE,
+    ANCHOR_BOTTOM,
+    ANCHOR_RIGHT
+} anchor_t;
+
 #define DEFFONT "Monospace:pixelsize=12"
+
+#define MAX(a, b)  ((a) > (b) ? (a) : (b))
+#define MIN(a, b)  ((a) < (b) ? (a) : (b))
 
 static void cleanup(void);
 static void drawbar(void);
@@ -17,13 +28,16 @@ static void usage(void);
 
 static char *text = NULL;
 static int bh, bw;
+static int bxperc = 0;
+static int byperc = 0;
+static anchor_t vanchor = ANCHOR_TOP;
+static anchor_t hanchor = ANCHOR_LEFT;
 static const char *font = NULL;
 static const char *bgcolor = "#222222";
 static const char *fgcolor = "#bbbbbb";
 static ColorSet *col;
 static struct itimerval timer;
 static Bool timeout = False;
-static Bool topbar = True;
 static Bool running = True;
 static int ret = 0;
 static DC *dc;
@@ -41,25 +55,83 @@ main(int argc, char *argv[]) {
 			puts("dosd-"VERSION", © 2014 dosd engineers (pfff), see LICENSE for details ONCE IT EXISTS");
 			exit(EXIT_SUCCESS);
 		}
-		else if(!strcmp(argv[i], "-b"))   /* appears at the bottom of the screen */
-			topbar = False;
-		else if(i+1 == argc)
+		else if(i+1 == argc) {
 			usage();
+                }
 		/* these options take one argument */
-		else if(!strcmp(argv[i], "-fn"))  /* font or font set */
+		else if(!strcmp(argv[i], "-x")) { /* set x percentage */
+                        bxperc = atoi(argv[++i]);
+                        bxperc = MIN(100, bxperc);
+                        bxperc = MAX(0, bxperc);
+                }
+		else if(!strcmp(argv[i], "-y")) { /* set y percentage */
+                        byperc = atoi(argv[++i]);
+                        byperc = MIN(100, byperc);
+                        byperc = MAX(0, byperc);
+                }
+		else if(!strcmp(argv[i], "-ax")) { /* set x anchor */
+                        switch(argv[++i][0]) {
+                            case 'l':
+                            case 'L':
+                                {
+                                    hanchor = ANCHOR_LEFT;
+                                    break;
+                                }
+                            case 'm':
+                            case 'M':
+                                {
+                                    hanchor = ANCHOR_MIDDLE;
+                                    break;
+                                }
+                            case 'r':
+                            case 'R':
+                                {
+                                    hanchor = ANCHOR_RIGHT;
+                                    break;
+                                }
+                        }
+                }
+		else if(!strcmp(argv[i], "-ay")) { /* set x anchor */
+                        switch(argv[++i][0]) {
+                            case 't':
+                            case 'T':
+                                {
+                                    vanchor = ANCHOR_TOP;
+                                    break;
+                                }
+                            case 'm':
+                            case 'M':
+                                {
+                                    vanchor = ANCHOR_MIDDLE;
+                                    break;
+                                }
+                            case 'b':
+                            case 'B':
+                                {
+                                    vanchor = ANCHOR_BOTTOM;
+                                    break;
+                                }
+                        }
+                }
+		else if(!strcmp(argv[i], "-fn")) {/* font or font set */
 			font = argv[++i];
-		else if(!strcmp(argv[i], "-bb"))  /* background color */
+                }
+		else if(!strcmp(argv[i], "-bb")) {/* background color */
 			bgcolor = argv[++i];
-		else if(!strcmp(argv[i], "-bf"))  /* foreground color */
+                }
+		else if(!strcmp(argv[i], "-bf")) {/* foreground color */
 			fgcolor = argv[++i];
-		else if(!strcmp(argv[i], "-t"))   /* display text */
+                }
+		else if(!strcmp(argv[i], "-t")) { /* display text */
 			text = argv[++i];
+                }
 		else if(!strcmp(argv[i], "-d")) { /* automatically disappear after a delay */
 			timeout = True;
 			timer.it_value.tv_sec = atoi(argv[++i]);
-			}
-		else
+                }
+		else {
 			usage();
+                }
 
 	if(text) {
 		dc = initdc();
@@ -70,7 +142,9 @@ main(int argc, char *argv[]) {
 		run();
 
 		cleanup();
-	}
+        } else {
+            usage();
+        }
 	return ret;
 }
 
@@ -88,9 +162,15 @@ drawbar(void) {
 	dc->h = bh;
 	drawrect(dc, 0, 0, bw, bh, True, col->BG);
 
+        dc->x += (bw * bxperc) / 100;
+        if(hanchor == ANCHOR_RIGHT) {
+            dc->x -= textw(dc, text);
+        } else if (hanchor == ANCHOR_MIDDLE) {
+            dc->x -= textw(dc, text) / 2;
+        }
 	dc->w = textw(dc, text);
 	drawtext(dc, text, col);
-	dc->x = dc->w;
+	dc->x += dc->w;
 
 	mapdc(dc, win, bw, bh);
 }
@@ -148,7 +228,12 @@ setup(void) {
 	/* calculate bar geometry */
 	bh = dc->font.height + 2;
 	x = 0;
-	y = topbar ? 0 : DisplayHeight(dc->dpy, screen) - bh;
+        y = ((DisplayHeight(dc->dpy, screen) * byperc) / 100);
+        if(vanchor == ANCHOR_BOTTOM) {
+            y -= bh;
+        } else if (vanchor == ANCHOR_MIDDLE) {
+            y -= bh / 2;
+        }
 	bw = DisplayWidth(dc->dpy, screen);
 
 	/* create bar window */
@@ -167,7 +252,9 @@ setup(void) {
 
 void
 usage(void) {
-	fputs("usage: dosd [-b] [-fn font] [-bb color] [-bf color]\n"
+	fputs("usage: dosd [-fn font] [-bb color] [-bf color]\n"
+	      "            [-x PERCENT] [-y PERCENT]\n"
+	      "            [-ax LEFT|MIDDLE|RIGHT] [-ay TOP|MIDDLE|BOTTOM]\n"
 	      "            [-t TEXT] [-d SECS] [-v]\n", stderr);
 	exit(EXIT_FAILURE);
 }
