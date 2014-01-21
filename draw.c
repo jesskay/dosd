@@ -74,8 +74,7 @@ void
 freecol(DC *dc, ColorSet *col) {
     if(col) {
         if(&col->FG_xft)
-            XftColorFree(dc->dpy, DefaultVisual(dc->dpy, DefaultScreen(dc->dpy)),
-                DefaultColormap(dc->dpy, DefaultScreen(dc->dpy)), &col->FG_xft);
+            XftColorFree(dc->dpy, dc->vis, dc->cmap, &col->FG_xft);
         free(col); 
     }
 }
@@ -102,30 +101,74 @@ freedc(DC *dc) {
 
 unsigned long
 getcolor(DC *dc, const char *colstr) {
-	Colormap cmap = DefaultColormap(dc->dpy, DefaultScreen(dc->dpy));
 	XColor color;
 
-	if(!XAllocNamedColor(dc->dpy, cmap, colstr, &color, &color))
+	if(!XAllocNamedColor(dc->dpy, dc->cmap, colstr, &color, &color))
 		eprintf("cannot allocate color '%s'\n", colstr);
 	return color.pixel;
 }
 
 ColorSet *
-initcolor(DC *dc, const char * foreground, const char * background) {
+initcolor(DC *dc, const char * foreground, const char * background, int alpha) {
+        dc->depth = (alpha != 0xff) ? 32 : DefaultDepth(dc->dpy, DefaultScreen(dc->dpy));
+
+        if (alpha == 0xff) {
+            dc->vis = DefaultVisual(dc->dpy, DefaultScreen(dc->dpy));
+        } else {
+            XVisualInfo *vis;
+            XRenderPictFormat *fmt;
+            int nvi;
+            int i;
+
+            XVisualInfo tpl = {
+                .screen = DefaultScreen(dc->dpy),
+                .depth = 32,
+                .class = TrueColor
+            };
+
+            vis = XGetVisualInfo(dc->dpy, VisualScreenMask | VisualDepthMask | VisualClassMask,
+                    &tpl, &nvi);
+            dc->vis = NULL;
+            for(i = 0; i < nvi; i++) {
+                fmt = XRenderFindVisualFormat(dc->dpy, vis[i].visual);
+                if(fmt->type == PictTypeDirect && fmt->direct.alphaMask) {
+                    dc->vis = vis[i].visual;
+                    break;
+                }
+            }
+
+            XFree(vis);
+
+            if(!(dc->vis)) {
+                eprintf("error, couldn't find an ARGB visual but alpha requested\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        if(alpha == 0xff) {
+            dc->cmap = DefaultColormap(dc->dpy, DefaultScreen(dc->dpy));
+        } else {
+            dc->cmap = XCreateColormap(dc->dpy, XRootWindow(dc->dpy, DefaultScreen(dc->dpy)), dc->vis, None);
+        }
+
 	ColorSet * col = (ColorSet *)malloc(sizeof(ColorSet));
 	if(!col)
 		eprintf("error, cannot allocate memory for color set");
 	col->BG = getcolor(dc, background);
+        if(alpha != 0xff) {
+                col->BG &= 0x00111111;
+                col->BG |= alpha << 24;
+        }
 	col->FG = getcolor(dc, foreground);
 	if(dc->font.xft_font)
-		if(!XftColorAllocName(dc->dpy, DefaultVisual(dc->dpy, DefaultScreen(dc->dpy)),
-			DefaultColormap(dc->dpy, DefaultScreen(dc->dpy)), foreground, &col->FG_xft))
+		if(!XftColorAllocName(dc->dpy, dc->vis,
+			dc->cmap, foreground, &col->FG_xft))
 			eprintf("error, cannot allocate xft font color '%s'\n", foreground);
 	return col;
 }
 
 DC *
-initdc(void) {
+initdc(Bool use_argb) {
 	DC *dc;
 
 	if(!setlocale(LC_CTYPE, "") || !XSupportsLocale())
@@ -135,8 +178,6 @@ initdc(void) {
 	if(!(dc->dpy = XOpenDisplay(NULL)))
 		eprintf("cannot open display\n");
 
-	dc->gc = XCreateGC(dc->dpy, DefaultRootWindow(dc->dpy), 0, NULL);
-	XSetLineAttributes(dc->dpy, dc->gc, 1, LineSolid, CapButt, JoinMiter);
 	return dc;
 }
 
@@ -178,16 +219,18 @@ mapdc(DC *dc, Window win, unsigned int w, unsigned int h) {
 
 void
 resizedc(DC *dc, unsigned int w, unsigned int h) {
-	int screen = DefaultScreen(dc->dpy);
 	if(dc->canvas)
 		XFreePixmap(dc->dpy, dc->canvas);
 
 	dc->w = w;
 	dc->h = h;
-	dc->canvas = XCreatePixmap(dc->dpy, DefaultRootWindow(dc->dpy), w, h,
-	                           DefaultDepth(dc->dpy, screen));
+	dc->canvas = XCreatePixmap(dc->dpy, DefaultRootWindow(dc->dpy), w, h, dc->depth);
+	dc->gc = XCreateGC(dc->dpy, 
+                (dc->depth == 32) ? dc->canvas : DefaultRootWindow(dc->dpy),
+                0, NULL);
+	XSetLineAttributes(dc->dpy, dc->gc, 1, LineSolid, CapButt, JoinMiter);
 	if(dc->font.xft_font && !(dc->xftdraw)) {
-		dc->xftdraw = XftDrawCreate(dc->dpy, dc->canvas, DefaultVisual(dc->dpy,screen), DefaultColormap(dc->dpy,screen));
+		dc->xftdraw = XftDrawCreate(dc->dpy, dc->canvas, dc->vis, dc->cmap);
 		if(!(dc->xftdraw))
 			eprintf("error, cannot create xft drawable\n");
 	}

@@ -35,6 +35,7 @@ static anchor_t hanchor = ANCHOR_LEFT;
 static const char *font = NULL;
 static const char *bgcolor = "#222222";
 static const char *fgcolor = "#bbbbbb";
+static int bgalpha = 0xff;
 static ColorSet *col;
 static struct itimerval timer;
 static Bool timeout = False;
@@ -119,6 +120,11 @@ main(int argc, char *argv[]) {
 		else if(!strcmp(argv[i], "-bb")) {/* background color */
 			bgcolor = argv[++i];
                 }
+		else if(!strcmp(argv[i], "-ba")) { /* set alpha */
+                        bgalpha = atoi(argv[++i]);
+                        bgalpha = MIN(255, bgalpha);
+                        bgalpha = MAX(0, bgalpha);
+                }
 		else if(!strcmp(argv[i], "-bf")) {/* foreground color */
 			fgcolor = argv[++i];
                 }
@@ -134,9 +140,9 @@ main(int argc, char *argv[]) {
                 }
 
 	if(text) {
-		dc = initdc();
+		dc = initdc(bgalpha != 0xff);
 		initfont(dc, font ? font : DEFFONT);
-		col = initcolor(dc, fgcolor, bgcolor);
+		col = initcolor(dc, fgcolor, bgcolor, bgalpha);
 
 		setup();
 		run();
@@ -239,11 +245,14 @@ setup(void) {
 	/* create bar window */
 	swa.override_redirect = True;
 	swa.background_pixel = col->BG;
+	swa.border_pixel = col->BG;
+	swa.colormap = dc->cmap;
 	swa.event_mask = ExposureMask | VisibilityChangeMask;
 	win = XCreateWindow(dc->dpy, root, x, y, bw, bh, 0,
-	                    DefaultDepth(dc->dpy, screen), CopyFromParent,
-	                    DefaultVisual(dc->dpy, screen),
-	                    CWOverrideRedirect | CWBackPixel | CWEventMask, &swa);
+	                    dc->depth, CopyFromParent,
+	                    dc->vis,
+	                    CWOverrideRedirect | CWBackPixel | CWEventMask
+                            | CWBorderPixel | CWColormap, &swa);
 
 	XMapRaised(dc->dpy, win);
 	resizedc(dc, bw, bh);
@@ -252,7 +261,7 @@ setup(void) {
 
 void
 usage(void) {
-	fputs("usage: dosd [-fn font] [-bb color] [-bf color]\n"
+	fputs("usage: dosd [-fn FONT] [-bb COLOR] [-bf COLOR] [-ba ALPHA]\n"
 	      "            [-x PERCENT] [-y PERCENT]\n"
 	      "            [-ax LEFT|MIDDLE|RIGHT] [-ay TOP|MIDDLE|BOTTOM]\n"
 	      "            [-t TEXT] [-d SECS] [-v]\n", stderr);

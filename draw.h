@@ -7,6 +7,9 @@ typedef struct {
 	Bool invert;
 	Display *dpy;
 	GC gc;
+        Visual *vis;
+        Colormap cmap;
+        int depth;
 	Pixmap canvas;
 	XftDraw *xftdraw;
 	struct {
@@ -33,8 +36,8 @@ void freecol(DC *dc, ColorSet *col);
 void eprintf(const char *fmt, ...);
 void freedc(DC *dc);
 unsigned long getcolor(DC *dc, const char *colstr);
-ColorSet *initcolor(DC *dc, const char *foreground, const char *background);
-DC *initdc(void);
+ColorSet *initcolor(DC *dc, const char *foreground, const char *background, int alpha);
+DC *initdc(Bool use_argb);
 void initfont(DC *dc, const char *fontstr);
 void mapdc(DC *dc, Window win, unsigned int w, unsigned int h);
 void resizedc(DC *dc, unsigned int w, unsigned int h);
