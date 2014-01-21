@@ -1,0 +1,73 @@
+.TH DOSD 1 dosd\-VERSION
+.SH NAME
+dosd \- dmenu\-style OSD
+.SH SYNOPSIS
+.B dosd
+.RB [ \-fn
+.IR FONT ]
+.RB [ \-bb
+.IR COLOR ]
+.RB [ \-bf
+.IR COLOR ]
+.RB [ \-ba
+.IR ALPHA ]
+.RB [ \-x
+.IR PERCENT ]
+.RB [ \-y
+.IR PERCENT ]
+.RB [ \-ax
+.IR LEFT|MIDDLE|RIGHT ]
+.RB [ \-ay
+.IR TOP|MIDDLE|BOTTOM ]
+.RB [ \-t
+.IR TEXT ]
+.RB [ \-d
+.IR SECS ]
+.RB [ \-v ]
+.SH DESCRIPTION
+.B dosd
+is an OSD tool for X, which displays a single-line message supplied on the
+command\-line, in a similar vein to dmenu's display style, with an optional
+automatic quit based on a delay.  It also supports changing background alpha
+to make the background more or less transparent.
+.SH OPTIONS
+.TP
+.BI \-fn " FONT"
+defines the font or font set used. eg. "fixed" or "Monospace-12:normal" (an xft font)
+.TP
+.BI \-bb " COLOR"
+defines the bar background color.
+.IR #RGB ,
+.IR #RRGGBB ,
+and X color names are supported.
+.TP
+.BI \-bf " COLOR"
+defines the normal foreground color.
+.TP
+.BI \-ba " ALPHA"
+defines the background alpha - 0 is full transparency, 255 is no transparency.
+.TP
+.BI \-x " PERCENT"
+defines the X position, as a percentage of screen width.  The anchor options
+(see below) determine what point in the text is placed at this position.
+.TP
+.BI \-y " PERCENT"
+defines the Y position, as a percentage of screen height.  The anchor options
+(see below) determine what point in the bar is placed at this position.
+.TP
+.BI \-ax " LEFT|MIDDLE|RIGHT"
+defines the X anchor point - LEFT places the left edge at the requested X
+position, MIDDLE places the center at it, RIGHT places the right edge at it.
+.TP
+.BI \-ay " TOP|MIDDLE|BOTTOM"
+defines the Y anchor point - TOP places the upper edge at the requested Y
+position, MIDDLE places the center at it, BOTTOM places the lower edge at it.
+.TP
+.BI \-t " TEXT"
+defines the text to display.
+.TP
+.BI \-d " SECS"
+waits for SECS seconds before automatically exiting.
+.TP
+.B \-v
+prints version information to stdout, then exits.

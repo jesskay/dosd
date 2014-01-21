@@ -1,0 +1,24 @@
+dosd - dmenu-style osd
+======================
+dosd is an OSD tool for X11 in the style of dmenu
+
+
+Requirements
+------------
+In order to build dosd you need the Xlib and Freetype header files.
+
+
+Installation
+------------
+Edit config.mk to match your local setup (dosd is installed into
+the /usr/local namespace by default).
+
+Afterwards enter the following command to build and install dosd
+(if necessary as root):
+
+    make clean install
+
+
+Running dosd
+------------
+See the man page for details.
